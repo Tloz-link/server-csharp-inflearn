@@ -11,7 +11,7 @@ namespace DummyClient
     {
         static void Main(string[] args)
         {
-            // DNS (Domain Name System) 사용
+            // DNS (Domain Name System)
             // 172.1.2.3 이렇게 하드코딩 해놓으면 나중에 ip가 바뀌었을 때 다 바꿔줘야함 (관리가 어려움)
             // 그래서 www.rookiss.com 처럼 도메인을 사용하면 좋음
             string host = Dns.GetHostName();
