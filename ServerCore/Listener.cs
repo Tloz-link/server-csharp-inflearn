@@ -26,6 +26,7 @@ namespace ServerCore
             // backlog : 최대 대기수 (대기열)
             _listenSocket.Listen(10);
 
+            // 이 세줄을 for문으로 여러번 돌려놓으면 더 많은 유저를 빠르게 받을 수 있다. (낚시대를 여러개 던져놓는 것)
             SocketAsyncEventArgs args = new SocketAsyncEventArgs();
             args.Completed += new EventHandler<SocketAsyncEventArgs>(OnAcceptCompleted);
             RegisterAccept(args);
