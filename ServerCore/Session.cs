@@ -11,23 +11,33 @@ namespace ServerCore
         Socket _socket;
         int _disconnected = 0;
 
+        object _lock = new object();
+        Queue<byte[]> _sendQueue = new Queue<byte[]>();
+        bool _pending = false;
+        SocketAsyncEventArgs _sendArgs = new SocketAsyncEventArgs();
+        SocketAsyncEventArgs _recvArgs = new SocketAsyncEventArgs();
+
+
         public void Start(Socket socket)
         {
             _socket = socket;
-            SocketAsyncEventArgs recvArgs = new SocketAsyncEventArgs();
-            recvArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnRecvCompleted);
-            //recvArgs.UserToken = this;  //이렇게 사용하면 나중에 어느 세션에서 온 args인지 알 수 있다.
-            recvArgs.SetBuffer(new byte[1024], 0, 1024);
+            _recvArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnRecvCompleted);
+            //_recvArgs.UserToken = this;  //이렇게 사용하면 나중에 어느 세션에서 온 args인지 알 수 있다.
+            _recvArgs.SetBuffer(new byte[1024], 0, 1024);
 
-            RegisterRecv(recvArgs);
+            _sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSendCompleted);
+
+            RegisterRecv();
         }
 
-        // 임시로 블로킹 버전으로 둔다.
-        // Accept, Recv는 바로 Async로 실행해서 대기 상태에 있다가 네트워크 통신이 오면 그때그때 처리하면 되지만
-        // Send는 사용자가 원할 때 실행해야 하므로 지금까지랑은 조금 다르다.
         public void Send(byte[] sendBuff)
         {
-            _socket.Send(sendBuff);
+            lock (_lock)
+            {
+                _sendQueue.Enqueue(sendBuff);
+                if (_pending == false)
+                    RegisterSend();
+            }
         }
 
         public void Disconnect()
@@ -45,11 +55,48 @@ namespace ServerCore
 
         #region 네트워크 통신
 
-        private void RegisterRecv(SocketAsyncEventArgs args)
+        private void RegisterSend()
         {
-            bool pending = _socket.ReceiveAsync(args);
+            _pending = true;
+            byte[] buff = _sendQueue.Dequeue();
+            _sendArgs.SetBuffer(buff, 0, buff.Length);
+
+            // 아직까지도 SendAsync는 한번씩만 가므로 병렬 처리는 여전히 안된다.
+            bool pending = _socket.SendAsync(_sendArgs);
             if (pending == false)
-                OnRecvCompleted(null, args);
+                OnSendCompleted(null, _sendArgs);
+        }
+
+        private void OnSendCompleted(object sender, SocketAsyncEventArgs args)
+        {
+            lock (_lock)
+            {
+                if (args.BytesTransferred > 0 && args.SocketError == SocketError.Success)
+                {
+                    try
+                    {
+                        if (_sendQueue.Count > 0)
+                            RegisterSend();
+                        else
+                            _pending = false;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"OnSendCompleted Failed {e}");
+                    }
+                }
+                else
+                {
+                    Disconnect();
+                }
+            }
+        }
+
+        private void RegisterRecv()
+        {
+            bool pending = _socket.ReceiveAsync(_recvArgs);
+            if (pending == false)
+                OnRecvCompleted(null, _recvArgs);
         }
 
         private void OnRecvCompleted(object sender, SocketAsyncEventArgs args)
@@ -61,7 +108,7 @@ namespace ServerCore
                 {
                     string recvData = Encoding.UTF8.GetString(args.Buffer, args.Offset, args.BytesTransferred);
                     Console.WriteLine($"[From Client] {recvData}");
-                    RegisterRecv(args);
+                    RegisterRecv();
                 }
                 catch (Exception e)
                 {
@@ -70,7 +117,7 @@ namespace ServerCore
             }
             else
             {
-                // TODO Disconnect
+                Disconnect();
             }
         }
         #endregion
