@@ -6,18 +6,18 @@ using System.Text;
 
 namespace ServerCore
 {
-    class Listener
+    public class Listener
     {
         Socket _listenSocket;
-        Action<Socket> _onAcceptHandler;
+        Func<Session> _sessionFactory;
 
-        public void Init(IPEndPoint endPoint, Action<Socket> onAcceptHandler)
+        public void Init(IPEndPoint endPoint, Func<Session> sessionFactory)
         {
             // 문지기
             // AddressFamily = ipv4, ipv6을 고르는 것 우리는 Dns가 준 패밀리를 그대로 사용함
             // SocketType, ProtocalType을 각각 Stream, Tcp로 두면 tcp 정책으로 소켓을 생성함
             _listenSocket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _onAcceptHandler += onAcceptHandler;
+            _sessionFactory += sessionFactory;
 
             // 문지기 교육
             _listenSocket.Bind(endPoint);
@@ -48,9 +48,9 @@ namespace ServerCore
         {
             if (args.SocketError == SocketError.Success)
             {
-                //받은 소켓을 이벤트 핸들러의 함수에게 넘기고(쓰레드 풀 사용) 바로 다시 Accept를 하러감
-                //이러면 각 클라이언트 소켓은 따로 병렬적으로 처리가능
-                _onAcceptHandler.Invoke(args.AcceptSocket);
+                Session session = _sessionFactory.Invoke();
+                session.Start(args.AcceptSocket);
+                session.OnConnected(args.AcceptSocket.RemoteEndPoint);
             }
             else
                 Console.WriteLine(args.SocketError.ToString());
