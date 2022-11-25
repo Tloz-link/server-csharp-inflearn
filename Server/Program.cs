@@ -11,12 +11,10 @@ namespace Server
     class Program
     {
         static Listener _listener = new Listener();
+        public static GameRoom Room = new GameRoom();
 
         static void Main(string[] args)
         {
-            // 멀티쓰레드가 개입하기 전에 초기화 해준다.
-            PacketManager.Instance.Register();
-
             // DNS (Domain Name System) 사용
             // 172.1.2.3 이렇게 하드코딩 해놓으면 나중에 ip가 바뀌었을 때 다 바꿔줘야함 (관리가 어려움)
             // 그래서 www.rookiss.com 처럼 도메인을 사용하면 좋음
@@ -25,7 +23,7 @@ namespace Server
             IPAddress ipAddr = ipHost.AddressList[0];
             IPEndPoint endPoint = new IPEndPoint(ipAddr, 7777);
 
-            _listener.Init(endPoint, () => { return new ClientSession(); });
+            _listener.Init(endPoint, () => { return SessionManager.Instance.Generate(); });
             Console.WriteLine("Listening...");
 
             while (true)
