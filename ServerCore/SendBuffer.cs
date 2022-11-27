@@ -9,7 +9,7 @@ namespace ServerCore
     {
         public static ThreadLocal<SendBuffer> CurrentBuffer = new ThreadLocal<SendBuffer>(() => { return null; });
 
-        public static int ChunkSize { get; set; } = 4096 * 100; //chunk => 뭉탱이 (큰 공간 잡을거라는 의미)
+        public static int ChunkSize { get; set; } = 65535 * 100; //chunk => 뭉탱이 (큰 공간 잡을거라는 의미)
 
         public static ArraySegment<byte> Open(int reserveSize)
         {

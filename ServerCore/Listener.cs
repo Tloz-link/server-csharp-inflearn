@@ -11,7 +11,7 @@ namespace ServerCore
         Socket _listenSocket;
         Func<Session> _sessionFactory;
 
-        public void Init(IPEndPoint endPoint, Func<Session> sessionFactory)
+        public void Init(IPEndPoint endPoint, Func<Session> sessionFactory, int register = 10, int backlog = 100)
         {
             // 문지기
             // AddressFamily = ipv4, ipv6을 고르는 것 우리는 Dns가 준 패밀리를 그대로 사용함
@@ -24,12 +24,14 @@ namespace ServerCore
 
             // 영업 시작
             // backlog : 최대 대기수 (대기열)
-            _listenSocket.Listen(10);
+            _listenSocket.Listen(backlog);
 
-            // 이 세줄을 for문으로 여러번 돌려놓으면 더 많은 유저를 빠르게 받을 수 있다. (낚시대를 여러개 던져놓는 것)
-            SocketAsyncEventArgs args = new SocketAsyncEventArgs();
-            args.Completed += new EventHandler<SocketAsyncEventArgs>(OnAcceptCompleted);
-            RegisterAccept(args);
+            for (int i = 0; i < register; ++i)
+            {
+                SocketAsyncEventArgs args = new SocketAsyncEventArgs();
+                args.Completed += new EventHandler<SocketAsyncEventArgs>(OnAcceptCompleted);
+                RegisterAccept(args);
+            }
         }
 
         // 서버나 클라이언트가 Accpet같은 블로킹 함수를 사용하면

@@ -15,6 +15,7 @@ namespace ServerCore
         public sealed override int OnRecv(ArraySegment<byte> buffer)  // sealed를 붙이면 더이상 이 함수를 오버라이딩 할 수 없음
         {
             int processLength = 0;
+            int packetCount = 0;
 
             while (true)
             {
@@ -29,10 +30,14 @@ namespace ServerCore
 
                 // 여기까지 왔으면 패킷 조립 가능
                 OnRecvPacket(new ArraySegment<byte>(buffer.Array, buffer.Offset, dataSize));
+                packetCount++;
 
                 processLength += dataSize;
                 buffer = new ArraySegment<byte>(buffer.Array, buffer.Offset + dataSize, buffer.Count - dataSize);
             }
+
+            if (packetCount > 1)
+                Console.WriteLine($"패킷 모아보내기 : {packetCount}");
 
             return processLength;
         }
@@ -45,7 +50,7 @@ namespace ServerCore
         Socket _socket;
         int _disconnected = 0;
 
-        RecvBuffer _recvBuffer = new RecvBuffer(1024);
+        RecvBuffer _recvBuffer = new RecvBuffer(65535);
 
         object _lock = new object();
         Queue<ArraySegment<byte>> _sendQueue = new Queue<ArraySegment<byte>>();
@@ -77,13 +82,28 @@ namespace ServerCore
             RegisterRecv();
         }
 
+        public void Send(List<ArraySegment<byte>> sendBuffList)
+        {
+            if (sendBuffList.Count == 0)
+                return;
+
+            lock (_lock)
+            {
+                foreach (ArraySegment<byte> sendBuff in sendBuffList)
+                    _sendQueue.Enqueue(sendBuff);
+
+                if (_pendingList.Count == 0)
+                    RegisterSend(); // 얘는 send가 하나도 없다가 처음 send를 호출하면 실행됨
+            }
+        }
+
         public void Send(ArraySegment<byte> sendBuff)
         {
             lock (_lock)
             {
                 _sendQueue.Enqueue(sendBuff);
                 if (_pendingList.Count == 0)
-                    RegisterSend(); // 얘는 send가 하나도 없다가 처음 send를 호출하면 실행됨
+                    RegisterSend();
             }
         }
 

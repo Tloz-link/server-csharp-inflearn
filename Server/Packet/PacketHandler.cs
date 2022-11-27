@@ -14,6 +14,10 @@ class PacketHandler
         if (clientSession.Room == null)
             return;
 
-        clientSession.Room.BroadCast(clientSession, chatPacket.chat);
+        // 클라이언트가 꺼졌을 때 clientSession.Room가 null이 되어 문제가 되므로 미리 참조를 받아놓음
+        GameRoom room = clientSession.Room;
+        room.Push(
+            () => room.BroadCast(clientSession, chatPacket.chat)
+        );
     }
 }
