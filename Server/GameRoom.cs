@@ -67,7 +67,7 @@ namespace Server
             _sessions.Remove(session);
 
             // 모두에게 알린다
-            S_BroadcastEnterGame leave = new S_BroadcastEnterGame();
+            S_BroadcastLeaveGame leave = new S_BroadcastLeaveGame();
             leave.playerId = session.SessionId;
             BroadCast(leave.Write());
         }
